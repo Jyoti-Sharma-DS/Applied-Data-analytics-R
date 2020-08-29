@@ -1,0 +1,878 @@
+---
+title: 'CS544: Data Visualization Project - Adult Income Analysis'
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#library(dplyr )
+library(tidyverse)
+#library(ggplot2)
+library(plotly)
+library(ggpubr)
+
+tableFormat <- function(X){
+knitr::kable(X, booktabs = TRUE, digits = 2, format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling(full_width = FALSE, position = "left",bootstrap_options = "bordered",latex_options = "basic")  
+}
+```
+
+# 1. Introduction
+
+Adult Income Analysis project is a data visualization project built on the USA 1994  census dataset.
+
+## 1.1 Project Objective
+
+The objective of this project is to analyse the dataset using data visualization techniques.
+
+## 1.2 Libraries Used
+
+For this project some additional libraries are used:
+
+- **ggplot2** 
+- **tidyverse**
+- **plotly**
+- **kableExtra**
+
+Purpose of these libraries is to generate advanced visual graphs and data formatting.
+
+## 1.3 Dataset Overview
+
+Dataset for Adult Income Analysis is data extracted from the 1994 census bureau database. Population in dataset is classified into two income categories, 1). >50K and 2). <= 50K. Along with information about income categories, the dataset consists of import information like age, workclass, work per hour, education etc. 
+
+## 1.4 Dataset structure information 
+
+The dataset consists of 15 attributes and the structure is as below
+
+```{r 1.3_data_Overview}
+#Loading Data from CSV file
+Original_Ds <- read.csv("/Users/jyotivashishth/Desktop/adult.csv" , header = TRUE)
+glimpse(Original_Ds)
+```
+
+
+# 2 Initial Pre-processing
+
+As a part of pre-processing the dataset was explored for followings:
+
+- Duplicate rows
+- Missing data
+
+## 2.1 Duplicate rows 
+
+Check for duplicate rows was carried out in two steps 
+
+*Step 1:* Identifying number of duplicate rows.
+
+*Step 2:* Remove the duplicate rows from the original dataset. 
+
+```{r 2.1_Duplicate_rows}
+##Initialise the vector
+record_info <- vector()
+record_info[1] <- nrow(Original_Ds)
+##check for Duplicate  rows 
+Ds_data <- Original_Ds[duplicated(Original_Ds),]
+cat("The Data set has " , nrow(Original_Ds) , " Rows")
+#Display number of duplicate row
+record_info[2] <- nrow(Ds_data)
+##show the duplicate Data
+cat("The Data set has " , nrow(Ds_data) , "Duplicate Rows")
+##unique Records
+DataCensus <- Original_Ds[!duplicated(Original_Ds),]
+cat("After Removing the Duplicate Rows Data set has ",nrow(DataCensus),"Unique Rows")
+```
+
+Overview of Data:
+
+```{r 2.1_OverviewOfData, echo=FALSE}
+record_info[3] <- nrow(DataCensus)
+
+header <- c("Total Rows","Duplicate Rows","Unique Rows")
+
+tableFormat(data.frame(Category=header, Count = record_info))
+
+```    
+    
+   
+```{r 2.1remove_the_redundant_Data, echo=FALSE}
+rm(Original_Ds , Ds_data , record_info , header )
+```
+
+
+## 2.2 Replace the missing data(? in our case)
+
+Here is a glimpse of dataset 
+
+```{r 2.2_Data_Overview}
+head(DataCensus)
+```
+
+In the above dataset, few of the columns have missing values populated with '?'. Replacing '?' values with 'NA' will be carried out in three steps:
+
+
+*Step 1:* Figure out the columns having '?' values(missing values).
+
+```{r 2.2_Check_for_dup}
+Col_name <- vector()
+for ( i in 1:ncol(DataCensus)) 
+{  
+  Missingcount<- 0
+  Missingcount <- sum( as.character(DataCensus[ , i]) == "?")
+  
+  ##If there are missing values
+  if(as.integer(Missingcount) > 0)
+  {
+    cat("Column " , as.character(colnames(DataCensus)[i] ), " has " , as.character(Missingcount) , "missing Values \n" )
+    Col_name <- c(Col_name, colnames(DataCensus)[i])
+  }
+}
+```
+
+
+*Step 2:* Add 'NA' to the levels of columns containing '?' values.  
+
+*Step 3:* Replace all '?' with 'NA' and remove '?' from the column levels.  
+
+
+```{r 2.2_alter_Factors_replace}
+for ( x in 1:length(Col_name) )
+{
+  ## Add Values in Level
+  levels(DataCensus[, Col_name[x]])[length(levels(DataCensus[, Col_name[x]])) + 1 ] <- "NA"
+  ##replace the Values
+  Index<- which(as.character(DataCensus[ , Col_name[x]]) == "?" )
+  DataCensus[Index , Col_name[x]] <- "NA"
+  #remove the redundant level
+  index <- which(levels(DataCensus[, Col_name[x]]) == "?")
+  levels(DataCensus[, Col_name[x]])[index] <- "NA"
+  
+}
+head(DataCensus)
+```
+
+```{r 2.2_remove_Data, echo=FALSE}
+rm(index , Index , Col_name)
+```
+
+
+# 3. Data Analysis 
+
+To understand data distribution, the dataset was explored for some of the columns.
+
+## 3.1 Categorical Variable 
+
+The idea is to analyze the distribution of different categorical variables like income, race, native.country, marital.status, education and sex.
+
+### 3.1.1 Income Analysis 
+
+"**income**" is a categorical column and consists of two values "**<=50K**" and "**>50K**". 
+
+
+```{r 3.1.1IncomeAnalysis }
+p <- ggplot(DataCensus, aes(x = income)) +  
+  geom_bar(aes(y = (..count..)/sum(..count..)*100  ) , fill=c("#0072B2", "#D55E00"),stat="count"  )+
+  labs(title = "Income distribution Analysis",x = "income",y = "Percentage" )+
+  coord_flip()
+
+ggplotly(p)
+```
+
+Followings are the deductions from the above graph:
+
+- The data belonging to each category **<=50K** and **>50K** is in approximate ratio of 3:1.
+
+- Maximum population belongs to **<=50K** category.
+
+
+### 3.1.2 Workclass Analysis
+
+**workclass** describe the sectors in which each individual is working. workclass column consists of 8 different categories and for some of the records data is missing, so these records belongs to "NA" category.
+
+```{r 3.1.2 , echo=FALSE}
+#list 
+workClass_Categories <- as.character(levels(DataCensus$workclass))
+Category <- paste0("category" , 1:length(workClass_Categories))
+x <- cbind(Category, workClass_Categories)
+
+tableFormat(x)
+
+rm(workClass_Categories,x,Category)
+```
+
+
+Below is the % distribution of different workclass categories belongs to different income categories except for the following categories:
+
+1. **NA**
+
+2. **Without-pay**
+
+3. **Never-worked**
+ 
+```{r 3.1.2_workclass_graph}
+
+p <- ggplot(filter(DataCensus,workclass!= "NA" & workclass!= "Without-pay" & workclass!= "Never-worked") , aes(x = workclass)) +  
+  geom_bar(aes(y = (..count..)/sum(..count..)*100 , fill=workclass ) ,stat="count"  )+
+  labs(title = "Workclass Distribution ",
+       x = "Workclass Categories",
+       y = "Percentage" )+
+    facet_grid(~income)+
+  
+  scale_color_hue()+
+  coord_flip()
+p
+```
+
+Followings are the deductions from the above graph:
+
+- Highest percentage of the population works in the private sector.
+- Second-highest percentage of the population works in **self-emp-not-inc** followed by **Local-gov** and **Federal-gov** consecutively.
+
+### 3.1.3 Sex Distribution Analysis
+
+sex column describes male or female distribution in the census dataset.
+
+Summary Table
+
+```{r 3.1.3 , echo=FALSE}
+#list 
+S_Categories <- as.character(levels(DataCensus$sex))
+Category <- paste0("category" , 1:length(S_Categories))
+x <- cbind(Category, S_Categories)
+tableFormat(x)
+
+rm(S_Categories,x,Category)
+```
+
+Male/Female Distribution(%)
+
+```{r 3.1.3}
+p <- ggplot(DataCensus, aes(x = sex)) +  
+  geom_bar(aes(y = (..count..)/sum(..count..)*100 , fill=sex ) ,stat="count"  )+
+  labs(title = "Sex Distribution ",x = "Sex",y = "Percentage" )+
+  facet_grid(~income)+
+  scale_color_hue()+
+  coord_flip()
+p
+```
+
+Followings are the deductions from the above graph:
+
+- For both income categories % of male is significantly higher than % of the female category.
+
+
+### 3.1.4 Education Distribution Analysis
+
+The education column describes the highest level of education for all the individuals in the dataset. Related to education there is another redundant column **education.num**, which contains integer keys corresponding to each education level described. The education column consists of 16 different categories
+
+```{r 3.1.4EduDistAnalysis , echo=FALSE}
+#list 
+Education_Categories <- as.character(levels(DataCensus$education))
+Category <- paste0("category" , 1:length(Education_Categories))
+x <- cbind(Category, Education_Categories)
+#Display Table
+tableFormat(x)
+rm(Education_Categories,x,Category)
+```
+
+Percentage of highest education level per income categories
+
+```{r 3.1.4EducationDistGraph}
+p <- ggplot(DataCensus, aes(x = education)) +  
+  geom_bar(aes(y = (..count..)/sum(..count..)*100 , fill=education ) ,stat="count"  )+
+  labs(title = "Education Distribution ",x = "Education Categories",y = "Percentage" )+
+  facet_grid(~income)+
+  scale_color_hue()+
+  coord_flip()
+p
+```
+
+Followings are the deductions from the above graph:
+
+- *High School Graduation* is the education of maximum % of population for  income category *<=50K*.
+
+- Second-highest percentage of population for  income categories is  having *some-college* as highest level of education.
+
+
+### 3.1.5 race distribution analysis
+
+The **race** column describes the race related information for all people listed in the census data.
+
+
+```{r 3.1.5RaceDistAnalysis , echo=FALSE}
+#list 
+workClass_Categories <- as.character(levels(DataCensus$race))
+Category <- paste0("category" , 1:length(workClass_Categories))
+x <- cbind(Category, workClass_Categories)
+
+tableFormat(x)
+rm(workClass_Categories,x,Category)
+```
+
+
+Race Distribution in entire Dataset
+
+
+```{r 3.1.5RaceDistGraph}
+p <- ggplot(DataCensus, aes(x = race)) +  
+  geom_bar(aes(y = (..count..)/sum(..count..)*100 , fill=race ) ,stat="count"  )+
+  labs(title = "Race Distribution Overview",x = "Race Categories",y = "Percentage" )+
+  facet_grid(~income)+
+  scale_color_hue()+
+  coord_flip()
+p
+```
+
+Followings are the deductions from the above graph:
+
+- Majority of population belonging to the White race.
+
+- Black race attributes to second-highest % of entire population.
+
+### 3.1.6  native.country analysis
+
+The **native.country** column describes details of native countries of the population.
+
+
+```{r 3.1.6NativeCountDistGraph }
+p <- DataCensus %>% 
+  filter(native.country != "NA") %>% 
+  group_by(income,native.country) %>% 
+  summarize(Proportion = n()/ nrow(DataCensus)) %>%
+ggplot(aes(x =  native.country , y = Proportion))+
+ geom_point()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  coord_flip()+
+   labs(title = "Native population  Distribution ",x = "Native Countries",y = "Propotion" )+
+  facet_grid(~income)+
+  theme_light()
+
+p
+
+```
+
+Followings are the deductions from the above graph:
+
+- Majority of the population of the dataset are indigenous.
+ 
+- Natives from Mexico are the second-highest in the entire population  (~ <5%).
+
+ 
+### 3.1.7  occupation Analysis
+
+The **occupation** column describes occupation related information for entire population.
+
+
+```{r 3.1.7OccupationAnalysisGraph}
+ p <- ggplot(DataCensus, aes(x = occupation)) +  
+   geom_bar(aes(y = (..count..)/sum(..count..)*100 , fill=occupation ) ,stat="count"  )+
+   labs(title = "Occupation Distribution ",x = "occupation Categories",y = "Percentage" )+
+   facet_grid(~income)+
+   scale_color_hue()+
+   coord_flip()
+ p
+```
+
+Followings are the deductions from the above graph:
+
+- Majority % of  population in income category **<=50K** are working as **Adm-clerical**.
+
+- Majority % of  population in income category **>50K**  are working as **Exec-managerial**.
+
+
+## 3.2 Continuous Variable 
+
+The idea is to analyze the distribution of different continuous variables like *age*, *work per hour*, *capital gain* and *capital loss*.
+
+### 3.2.1 age Analysis 
+
+The age is in the range of 17 to 90 years and the age distribution looks like:
+
+```{r 3.2.1Ageoverview}
+summary(DataCensus$age)
+```
+
+Age distribution for income categories
+
+```{r 3.2.1AgeAnalysis}
+g <- ggplot(data =DataCensus )+  
+  geom_boxplot(aes(x=income, y= age),outlier.size=4, outlier.colour='red', alpha=0.1,notch = TRUE,notchwidth = 0.003 )+
+  labs(title = "Age distribution by income groups",x="Age",y = "Count")+
+  scale_color_hue()
+g
+```
+
+Followings are the deductions from the above graph:
+
+- Majority of outliers lie in upper age range.
+- For **<=50K** *income* category 25 to 75 percentile of the population lies in age range of 25-46 years.
+- For *income* category **>50K**  25 to 75 percentile of the population lies in age range of 36-51 years.
+
+### 3.2.2 hours.per.week Analysis 
+
+**hours.per.week** column distribution indicates the number of hours per week worked by individuals.
+
+
+Summary of hours per week for entire data:
+
+```{r 3.2.2HPWSummary , echo=FALSE}
+summary(DataCensus$hours.per.week)
+```
+
+The hours per week distribution for both income categories
+
+```{r 3.2.2HPWGraph}
+par(mfrow=c(2,1))
+ p<- ggplot(DataCensus, aes(hours.per.week))+
+  geom_freqpoly(aes(col= income), binwidth = 1)+
+  scale_x_continuous(breaks = round(seq(min(DataCensus$hours.per.week), max(DataCensus$hours.per.week), by = 10),-1))+
+    scale_colour_hue()+
+  theme(legend.position = "right")+
+  labs(title = "Hours per week distribution by income groups(Count)",
+       x ="Hours per week",
+       y = "Count")
+
+g <- DataCensus %>% 
+  group_by(income, hours.per.week) %>% 
+  summarize(count = n()) %>% 
+  ungroup() %>% 
+  group_by(hours.per.week) %>% 
+  mutate(prop = count / sum(count)) %>%
+  ggplot(., aes(hours.per.week, prop, fill = income))+
+  geom_area()+
+  scale_x_continuous(breaks = round(seq(min(DataCensus$hours.per.week), max(DataCensus$hours.per.week), by = 10),-1))+
+  theme(legend.position = "right") +
+  labs(title = "Hours per week distribution by income groups - Proportion",
+       x ="Hours per week",
+       y = "Proportion")
+
+
+ggplotly(p)
+ggplotly(g)
+
+par(mfrow=c(1,1))
+```
+
+Followings are the deductions from the above graph:
+
+- Highest number of individuals in both income categories are working 40 hours per week.
+- Some extreme cases where people are working as high as 99 hours per week.
+
+### 3.2.3 capital.gain and  capital.loss Analysis
+
+**capital.gain** and **capital.loss** columns depicts the loss and gain for entire population listed in this census dataset.
+
+```{r 3.2.3CapGainCapLossB}
+par(mfrow=c(2,1))
+g <- ggplot(data =DataCensus )+  
+  geom_boxplot(aes(x=income, y= capital.gain),outlier.size=4, outlier.colour='red', alpha=0.1,notch = TRUE,notchwidth = 0.003 )+
+  labs(title = "Capital Gain distribution by income groups",x="Capital Gain",y = "Count")+
+  scale_color_hue()
+
+h <- ggplot(data =DataCensus )+  
+  geom_boxplot(aes(x=income, y= capital.loss),outlier.size=4, outlier.colour='red', alpha=0.1,notch = TRUE,notchwidth = 0.003 )+
+  labs(title = "Capital Loss distribution by income groups",x="Capital Loss",y = "Count")+
+  scale_color_hue()
+
+ggplotly(g)
+ggplotly(h)
+par(mfrow=c(1,1))
+```
+
+
+Followings are the deductions from the above graph:
+
+- For **capital gain** and **capital loss** minimum, 1st, 2nd and 3rd quantile values are equal to “0”.
+- At least **75%** of population has no **capital gain** or **loss**.
+- The distributions of these variables is extremely skewed.
+- Capital gain values have got multiple outliers ranging from **3103** to **100000** for people earning more than **>50K**.
+
+To understand the rest of distribution we removed the values ‘0’ and ‘99999’ of capital gain .
+
+```{r 3.2.3CapGainCapLossDist}
+par(mfrow=c(2,1))
+ p<- DataCensus %>% 
+   filter(capital.gain!= 0 &  capital.gain!= 99999) %>%
+   group_by(income, capital.gain) %>% 
+   summarize(count = n()) %>% 
+   ungroup() %>% 
+   ggplot(aes(x = capital.gain, y = count, colour = income)) +
+   geom_point(alpha = 0.7,  position = position_jitter())+
+  theme(legend.position = "right") +
+  labs(title = "Capital Gain Distribution(Excluding 0 and 99999)",
+       x ="Capital Gain",
+       y = "Count")
+ 
+
+q<-  DataCensus %>% 
+   filter(capital.loss!= 0 ) %>%
+   group_by(income, capital.loss) %>% 
+   summarize(count = n()) %>% 
+   ungroup() %>% 
+   ggplot(aes(x = capital.loss, y = count, colour = income)) +
+   geom_point(alpha = 0.7,  position = position_jitter())+
+  labs(title = "Capital Loss Distribution",
+       x ="Capital Loss",
+       y = "Count")
+ggplotly(p)
+ggplotly(q)
+
+par(mfrow=c(1,1))
+```
+
+Followings are the deductions from the above graph(after removing extreme outliers):
+
+**capital.gain Distribution**
+
+- Population earning **>50K** maximum **capital gain** is **15024** and maximum number of people are belonging to this category.
+- Population earning **<=50K** maximum **capital gain** is **41310** but very few people belong to this category. 
+- **Capital Gain** for people earning **>50K** population is higher as compared to **<=50K**.
+
+
+**capital.loss Distribution**
+
+- People earning **>50K** have incurred the **highest Capital Loss**.
+- For all people earning **<=50K** observation counts for each individual is less than **50**.
+
+
+# 4. Data Exploration 
+
+To understand the data in more depth, i.e how these variables are impacting one another, this dataset is explored in depth.
+
+## 4.1 hours.per.week and age 
+
+To understand the distribution of population based on *age* and *hours.per.week* , we have plotted below point plot 
+
+```{r 4.1 HrsPwandAge }
+par(mfrow=c(2,1))
+P <- ggplot(DataCensus , aes(x = age , y = hours.per.week) )+
+  geom_point(aes(color = sex) , alpha = 0.3,position = position_jitter())+
+   labs(title = "Hours work per week distribution over Age",x = "age",y = "Hours Per Week" )+
+  facet_grid(~income)
+
+P
+
+qplot(x= age , y = hours.per.week ,data =DataCensus ,geom = "boxplot", colour = sex , facets =~income)
+par(mfrow=c(1,1))
+```
+
+Followings are the deductions from the above graph:
+
+- Population earning **<=50K**  only one male aged 90 years is working for 99 hours per week, which is an anomaly.
+- Population in income category “**<=50K**”  are working for longer hours as compared to population in income category “**>50K**”.
+- For both the income categories maximim population is working 40 hours per week.
+
+
+## 4.2 workclass and hours.per.week 
+
+For understanding the workload in various workclass category we plotted a dot plot. Since Never-worked and NA(missing values) categories doesn't bring value in analysis so the corresponding data is filtered out.
+
+```{r 4.2 }
+Data_sum <- data.frame(table(DataCensus$workclass, DataCensus$education, DataCensus$income))
+
+colnames(Data_sum) <- c("workclass" ,"education" , "income" , "count" )
+
+P <- ggplot(subset(DataCensus , workclass != "NA" & workclass != "Never-worked" ),aes(x = workclass,y = hours.per.week)) + 
+   theme(legend.position="top",axis.text=element_text(size = 6))+
+   geom_point(aes(color = sex),alpha = 0.5,size = 1.5, 
+              position = position_jitter(width = 0.25, height = 0))+
+   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+   labs(title = "Hours Per Week for different Workclass",x = "Workclass Categories",y = "Hours Per Week" )+
+   scale_x_discrete(name="WorkClass Type") +
+   facet_grid(~income)
+P
+```
+
+
+Followings are the deductions from the above graph:
+
+- Only one **Female** employee working for **private** in income range **>50K** is working for 99 hours per week.
+
+- The highest number of hours per week is 99 for females earning **<=50** in four different workclass categories
+
+- Irrespective of their earning categories the males are working 99 hours per week in four different workclass categories.
+
+
+## 4.3  workclass and education
+
+For understanding the highest education level of people belonging to different Workclass. Since Never-worked and NA(missing values) categories don’t make sense in the plot we filtered out that data.
+
+```{r 4.3StudiesWorkclass}
+
+
+Data_sum <- data.frame(table(DataCensus$workclass,DataCensus$education, DataCensus$income))
+
+colnames(Data_sum) <- c("workclass" ,"education" , "income" , "count" )
+
+library(ggpubr)
+
+P <-ggballoonplot(subset(Data_sum , workclass != "NA" & workclass != "Never-worked" ), x = "workclass", y = "education", size = "count",
+              fill = "count", facet.by = "income",
+              ggtheme = theme_bw()) +
+  labs(title = "Education distribution for different Workclass",x = "workclass",y = "Education" )+
+  scale_fill_viridis_c(option = "C")
+
+P
+```
+
+Followings are the deductions from the above graph:
+
+- For income category **<=50K** majority of the population the highest level of education is  **HS-Grad** and are working in **private** sector.
+
+- For income category **<=50K** second-highest level of education for the majority of the population is **Some-College** and are working in **private** sector.
+
+- For income category **>50K** highest level of education for the majority of the population is **Bachelors**  and are employed in **private** sector.
+
+
+```{r 4.3Clearingup, echo=FALSE}
+rm(Data_sum)
+```
+
+
+# 5. Data Distribution Analysis For age
+
+Age is the numerical attribute for which distribution patterns will be analyzed. To understand the distribution pattern category for Age attribute,density plot and histograms are used.
+
+```{r 5DDA_Age }
+
+Y <- as.numeric(as.character(DataCensus$age))
+g <- DataCensus %>% 
+  ggplot(aes(age)) +
+  geom_density(fill="blue")+
+  labs(title = "Age Distribution Density Plot",x = "Age",y = "Density" )
+d <- density(Y)
+hist(Y , prob = TRUE)
+lines(d, col="red")
+g
+
+```
+
+The histogram and density plots indicate the Age distribution are **right skewed**. This probably can be a result of either the lower age limit or the outliers of upper values.
+
+```{r 5rm}
+rm(d)
+```
+
+# 6. Central Limit Theorem application on Age
+
+The **Central Limit Theorem** states that the distribution of the sample means for a given sample size of the population has the shape of the normal distribution. 
+
+For testing the applicability of **Central Limit Theorem**  on Age column following steps are performed 
+
+- Fetch the summary of Age variable
+
+```{r 6_AgeSummary}
+summary(DataCensus$age)
+```
+
+- Decide random samples and sample sizes. To test the applicability of  **Central Limit Theorem** we will be selecting **10000** sample of sizes <**5000, 6000, 7000, 8000**> respectively.
+
+- Calculate the mean of all the sample sizes.
+
+- Plot a histogram of Mean values.
+
+- Compare the standard deviation for each sample size.
+
+```{r 6_1_RS_SS}
+#initialize Sample variables
+samples <- 10000
+xbar <- numeric(samples)
+set.seed(11)
+#Vector For Storing The SD
+Actual_sd <- vector()
+par(mfrow = c(2,2))
+
+for (size in c(5000, 6000, 7000, 8000)) {
+  
+  for (i in 1:samples) {
+    xbar[i] <- mean(sample(Y, size = size, 
+                           replace = TRUE))
+    
+  }
+  #Histogram for All sample size
+  hist(xbar, prob = TRUE,main = paste("Sample Size =", size))
+  d <- density(xbar)
+  lines(d, col="red")
+  #display the Mean and standard deviation for each sample size
+  cat("Sample Size = ", size, " Mean = ", mean(xbar),
+      " SD = ", sd(xbar), "\n")
+  #store the  SD for each sample size
+  Actual_sd <- c( Actual_sd , sd(xbar))
+}
+
+par(mfrow = c(1,1))
+
+```
+
+- Calculation of expected SD for each sample size.
+
+
+```{r 6_2SD}
+options(digits = "3")
+Sample_size <- c(5000, 6000, 7000, 8000)
+Expected_sd <- sd(DataCensus$age)/sqrt(Sample_size)
+options(digits = "7")
+
+df <- cbind(Sample_size , Actual_sd , Expected_sd)
+
+tableFormat(df)
+
+```
+
+Below are the findings from the histograms and standard deviation table 
+
+- Histograms of mean indicate that the mean values follow a normal distribution.
+
+- The actual and expected standard deviation is the same for the randomly picked sample sizes.
+
+The above fact indicates that **Central Limit Theorem** holds for Age distribution.
+
+```{r 6_remove , echo=FALSE }
+rm(Sample_size, df , Expected_sd, Actual_sd, d , xbar , Y)
+```
+
+# 7. Sampling 
+
+To understand the impact of various sampling techniques on the dataset, below listed sampling techniques are applied on the dataset
+
+- **Simple random sampling with Replacement(SRSWR)**
+
+- **Simple random sampling without Replacement(SRSWOR)**
+
+- **Systematic Sampling**
+
+
+```{r 7SamplingInfo , echo=FALSE }
+library(sampling)
+
+set.seed(489)
+
+Sampling_method <- c ("Original Dataset" , "Simple Random Sampling With Replacement" , "Simple Random Sampling Without Replacement" , "Systematic")
+Sampling_mean <- vector()
+Sampling_mean <- mean(DataCensus$age)
+
+Sampling_SD <- vector()
+Sampling_SD <- sd(DataCensus$age)
+
+Sampling_Size <- vector()
+Sampling_Size <- c(nrow(DataCensus) , '12000' , '90000' , '6000')
+```
+
+## 7.1 Simple random sampling with Replacement(SRSWR)
+
+Using *simple random sampling with replacement* technique we will be selecting **12000** samples out of **32537** records.
+
+```{r 7.1SRSWR}
+#size Of entire Dataset
+N <- nrow(DataCensus)
+# Sample size 
+n <- 12000
+
+#fetch the sample
+s <-  srswr(n, N)
+##Sample 
+rows <- (1:N)[s!=0]
+
+#generate the row sequence 
+rows <- rep(rows, s[s != 0])
+
+#sample Data 
+Data_srswr <- na.omit(DataCensus[rows , ])
+#store the Mean value of Age column in Original D.s and sample 
+Sampling_mean <- c ( Sampling_mean , mean(Data_srswr$age) )
+Sampling_SD <- c(Sampling_SD , sd(Data_srswr$age))
+cat("Mean and standard deviation of Sample generated using SRSWR : <" ,  Sampling_mean[2] , ",",Sampling_SD[2],  ">\n")
+```
+
+
+```{r 7.1remove, echo=FALSE}
+rm(Data_srswr)
+```
+
+## 7.2 Simple random sampling without Replacement(SRSWOR)
+
+Using *simple random sampling without replacement* technique we will be selecting **9000** samples out of **32537** records.
+
+```{r 7.2SRSWOR}
+
+n <- 9000
+
+s <- srswor(n, N)
+
+rows <- (1:N)[s!=0]
+
+rows <- rep(rows, s[s != 0])
+
+#Store the samples
+Data_srswor <- na.omit(DataCensus[rows, ])
+#store the Mean value of Age column in Original D.s and sample 
+Sampling_mean <- c (Sampling_mean , mean(Data_srswor$age) )
+Sampling_SD <- c(Sampling_SD , sd(Data_srswor$age))
+cat("Mean and standard deviation of Sample generated using SRSWOR : <" ,  Sampling_mean[3] , ",",Sampling_SD[3],  ">\n")
+```
+
+
+```{r 7.2remove, echo=FALSE}
+rm(Data_srswor)
+```
+
+## 7.3 Systematic Sampling
+
+Using *systematic sampling* technique we will be selecting **6000** samples out of **32537** records.
+
+```{r 7.3Systematic}
+
+#Calculate group size
+n <- 6000
+k <- ceiling(N / n)
+#sample size
+r <- sample(k, 1)
+#generate row numbers
+rows <- seq(r, by = k, length = n)
+
+#Draw the sample  Data 
+Data_Systematic <- na.omit(DataCensus[rows, ])
+
+Sampling_mean <- c( Sampling_mean , mean(Data_Systematic$age))
+Sampling_SD <- c(Sampling_SD , sd(Data_Systematic$age))
+
+cat("Mean of Sample generated using Systematic Sampling :" ,  Sampling_mean[4] , ",",Sampling_SD[4],  ">\n")
+```
+
+```{r 7.3remove, echo=FALSE}
+rm(Data_Systematic)
+```
+
+## 7.4 Sampling Result Analysis
+
+For understanding the impact of sampling the sample generated are compared with the original dataset based on mean and standard deviations for age attribute of the dataset.
+
+```{r 7.4Analysis}
+df <- data.frame(cbind(Sampling_method , Sampling_Size , Sampling_SD ,Sampling_mean ))
+
+tableFormat(df)
+
+```
+
+From the summary above it's evident that using SRWR, SRSWOR and Systematic sampling despite of different sample sizes there is a very small difference in standard deviation and mean values.
+
+
+# 8. Bibliography
+
+**Dataset Source:**
+https://www.kaggle.com/
+
+**External Refrences:** 
+
+- https://ggplot2.tidyverse.org/
+- https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+- ~/ggplot2/Tutorial_ggplot2/Rgraphics.html
